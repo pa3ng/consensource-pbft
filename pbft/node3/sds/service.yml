@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    name: sds-3
+  name: sds-3
+spec:
+  ports:
+    - name: validator-tcp
+      protocol: TCP
+      port: 4004
+      targetPort: 4004
+    - name: postgres-tcp
+      protocol: TCP
+      port: 5432
+      targetPort: 5432
+  selector:
+     app: sds-3

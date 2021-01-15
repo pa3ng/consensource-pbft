@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: keys-config
+data:
+  pbft0priv:
+  pbft0pub:
+  pbft1priv:
+  pbft1pub:
+  pbft2priv:
+  pbft2pub:
+  pbft3priv:
+  pbft3pub:
+  pbft4priv:
+  pbft4pub:

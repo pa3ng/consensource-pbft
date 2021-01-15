@@ -1,0 +1,127 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: validator-pbft-3
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app: validator-pbft-3
+  template:
+    metadata:
+      labels:
+        app: validator-pbft-3
+    spec:
+      containers:
+        # Validator
+        - name: validator
+          image: hyperledger/sawtooth-validator:chime
+          imagePullPolicy: Always
+          resources:
+            limits:
+              cpu: 500m
+              memory: 2Gi
+            requests:
+              cpu: 250m
+              memory: 1Gi
+          ports:
+            - name: tp
+              containerPort: 4004
+            - name: validators
+              containerPort: 8800
+            - name: consensus
+              containerPort: 5050
+          env:
+            - name: pbft3priv
+              valueFrom:
+                configMapKeyRef:
+                  name: keys-config
+                  key: pbft3priv
+            - name: pbft3pub
+              valueFrom:
+                configMapKeyRef:
+                  name: keys-config
+                  key: pbft3pub
+          command:
+            - bash
+          args:
+            - -c
+            - |
+              if [ ! -e /etc/sawtooth/keys/validator.priv ]; then
+                echo $pbft3priv > /etc/sawtooth/keys/validator.priv
+                echo $pbft3pub > /etc/sawtooth/keys/validator.pub
+              fi &&
+              sawtooth keygen my_key &&
+              sawtooth-validator -vv \
+                  --endpoint tcp://validator-pbft-3:8800 \
+                  --bind component:tcp://0.0.0.0:4004 \
+                  --bind consensus:tcp://0.0.0.0:5050 \
+                  --bind network:tcp://0.0.0.0:8800 \
+                  --scheduler parallel \
+                  --peering static \
+                  --maximum-peer-connectivity 10000 \
+                  --peers tcp://validator-pbft-0:8800 \
+                  --peers tcp://validator-pbft-1:8800 \
+                  --peers tcp://validator-pbft-2:8800
+        
+        # PBFT Engine
+        - name: sawtooth-pbft-engine
+          image: hyperledger/sawtooth-pbft-engine:chime
+          resources:
+            limits:
+              cpu: 100m
+              memory: 250Mi
+            requests:
+              cpu: 50m
+              memory: 100Mi
+          command:
+            - bash
+          args:
+            - -c
+            - "pbft-engine -vv --connect tcp://$HOSTNAME:5050"
+
+        # Settings-TP
+        - name: settings-tp
+          image: hyperledger/sawtooth-settings-tp:chime
+          imagePullPolicy: Always
+          resources:
+            limits:
+              cpu: 100m
+              memory: 250Mi
+            requests:
+              cpu: 50m
+              memory: 100Mi
+          ports:
+            - name: validator
+              containerPort: 4004
+          command:
+            - bash
+          args:
+            - -c
+            - "settings-tp -vv -C tcp://$HOSTNAME:4004"
+
+        # Sawtooth REST API
+        - name: sawtooth-rest-api
+          image: hyperledger/sawtooth-rest-api:chime
+          resources:
+            limits:
+              cpu: 100m
+              memory: 250Mi
+            requests:
+              cpu: 50m
+              memory: 100Mi
+          ports:
+            - name: api
+              containerPort: 8008
+          command:
+            - bash
+          args:
+            - -c
+            - "sawtooth-rest-api -vv -C tcp://$HOSTNAME:4004 -B 0.0.0.0:8008"
+          readinessProbe:
+            httpGet:
+              path: /status
+              port: 8008
+            initialDelaySeconds: 15
+            periodSeconds: 10

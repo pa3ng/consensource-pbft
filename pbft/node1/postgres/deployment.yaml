@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: postgres-db-1
+  name: postgres-db-1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres-db-1
+  template:
+    metadata:
+      labels:
+        app: postgres-db-1
+    spec:
+      volumes:
+        - name: postgres-db-1
+          persistentVolumeClaim:
+            claimName: db-data-pvc-1
+      containers:
+        - name: postgres-db-1
+          image: target/consensource-db:postgres-12.4
+          imagePullPolicy: IfNotPresent
+          volumeMounts:
+            - mountPath: /var/lib/postgresql/data
+              name: postgres-db-1
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: postgres
+                  key: CONSENSOURCEDB_USER
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: postgres
+                  key: CONSENSOURCEDB_NAME
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres
+                  key: CONSENSOURCEDB_PASSWORD
